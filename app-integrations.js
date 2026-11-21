@@ -65,7 +65,7 @@
       const values=()=>({email:document.querySelector('#asEmail').value.trim(),password:document.querySelector('#asPassword').value});
       const msg=overlay.querySelector('[data-auth-message]');
       overlay.querySelector('#asSignIn').onclick=async()=>{const v=values();try{const {error}=await client.auth.signInWithPassword(v);if(error)throw error;overlay.remove()}catch(e){msg.textContent=e.message}};
-      overlay.querySelector('#asSignUp').onclick=async()=>{const v=values();try{const {data,error}=await client.auth.signUp({...v,options:{data:{display_name:v.email.split('@')[0]}}});if(error)throw error;msg.textContent=data.session?'Účet je pripravený.':'Skontroluj e-mail a potvrď registráciu.'}catch(e){msg.textContent=e.message}};
+      overlay.querySelector('#asSignUp').onclick=async()=>{const v=values();try{const {data,error}=await client.auth.signUp({...v,options:{emailRedirectTo:`${location.origin}/`,data:{display_name:v.email.split('@')[0]}}});if(error)throw error;msg.textContent=data.session?'Účet je pripravený.':'Skontroluj e-mail a potvrď registráciu.'}catch(e){msg.textContent=e.message}};
       overlay.querySelector('#asForgot').onclick=async()=>{const {email}=values();if(!email){msg.textContent='Najprv zadaj e-mail.';return}const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/`});msg.textContent=error?.message||'Odkaz na obnovu hesla sme poslali e-mailom.'};
     }
     overlay.querySelector('[data-auth-message]').textContent=message;
