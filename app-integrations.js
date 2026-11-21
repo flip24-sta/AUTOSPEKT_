@@ -15,13 +15,25 @@
   style.textContent = `
     .as-status{display:flex;align-items:center;gap:7px;border:1px solid #39434a;border-radius:999px;padding:7px 10px;color:#c2c9cd;background:#10161a;font-size:11px;font-weight:700;white-space:nowrap}.as-dot{width:7px;height:7px;background:#ff9c24;border-radius:99px}.as-status.live .as-dot{background:#12c55b;box-shadow:0 0 9px #12c55b88}
     .as-overlay{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;background:#05080beF;padding:20px}.as-auth{width:min(440px,100%);border:1px solid #353e44;border-radius:18px;background:#11171c;padding:27px;box-shadow:0 25px 90px #0009}.as-auth h2{font:800 26px Manrope;margin:0 0 7px}.as-auth p{color:#aab3b8;line-height:1.55}.as-auth .field{margin:7px 0 12px}.as-auth-actions{display:flex;gap:9px;margin-top:10px}.as-auth-actions .btn{flex:1}.as-market-actions{display:flex;gap:7px;margin-top:10px}.as-market-actions .btn{font-size:11px;padding:8px}.as-photo-input{margin:8px 0 12px}.as-status-banner{margin:12px 32px 0;padding:10px 14px;border:1px solid #74521f;border-radius:10px;background:#21190f;color:#f0c886;font-size:12px}
-    @media(max-width:700px){.as-status{display:none}.as-status-banner{margin:10px 14px}}
+    .as-authbtn{border:0;border-radius:999px;padding:9px 15px;background:var(--orange,#ff7a1a);color:#111;font-weight:800;font-size:13px;white-space:nowrap;cursor:pointer}.as-authbtn.out{background:#1b232a;color:#e6ebee;border:1px solid #39434a}.as-auth-close{margin-top:14px;background:none;border:0;color:#aab3b8;text-decoration:underline;cursor:pointer;width:100%}
+    @media(max-width:700px){.as-status{display:none}.as-authbtn{padding:8px 11px;font-size:12px}.as-status-banner{margin:10px 14px}}
   `;
   document.head.append(style);
   const status = document.createElement('div');
   status.className = `as-status ${configured?'':'demo'}`;
   status.innerHTML = `<i class="as-dot"></i><span>${configured?'Backend pripravený':'Demo · backend nepripojený'}</span>`;
   document.querySelector('.topright')?.prepend(status);
+  const authBtn = document.createElement('button');
+  authBtn.type = 'button';
+  authBtn.className = 'as-authbtn';
+  authBtn.textContent = 'Prihlásiť sa / Registrácia';
+  document.querySelector('.topright')?.prepend(authBtn);
+  const setUserLabel = (name) => {
+    const top = document.querySelector('#userNameTop'); if (top) top.textContent = name || 'Hosť';
+    const ini = document.querySelector('#userInitials');
+    if (ini) ini.textContent = name ? name.split(/[\s@.]+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('') : '?';
+  };
+  setUserLabel('');
   const banner = document.createElement('div');
   banner.className = 'as-status-banner';
   banner.innerHTML = configured
@@ -30,6 +42,7 @@
   document.querySelector('.main')?.insertBefore(banner, document.querySelector('.main').children[1] || null);
 
   if (!configured) {
+    authBtn.onclick = () => alert('Prihlásenie a registrácia zatiaľ nefungujú: stránka ešte nie je pripojená k databáze (Supabase). Po nastavení kľúčov v Netlify sa zapnú automaticky.');
     window.AUTOSPEKT_LIVE = false;
     return;
   }
@@ -48,6 +61,7 @@
       overlay=document.createElement('div'); overlay.className='as-overlay';
       overlay.innerHTML=`<section class="as-auth"><div class="brand-word">AUTO<em style="color:var(--orange)">SPEKT</em></div><h2>Zabezpečený portál</h2><p data-auth-message></p><label class="label" for="asEmail">E-mail</label><input class="field" id="asEmail" type="email" autocomplete="email" required placeholder="meno@firma.sk"><label class="label" for="asPassword">Heslo</label><input class="field" id="asPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="Aspoň 8 znakov"><div class="as-auth-actions"><button class="btn" id="asSignIn">Prihlásiť sa</button><button class="btn primary" id="asSignUp">Vytvoriť účet</button></div><button class="textlink" id="asForgot" style="margin-top:14px">Zabudnuté heslo</button></section>`;
       document.body.append(overlay);
+      const close=document.createElement('button');close.type='button';close.className='as-auth-close';close.textContent='Zavrieť a len si prezerať';close.onclick=hideAuth;overlay.querySelector('.as-auth').append(close);
       const values=()=>({email:document.querySelector('#asEmail').value.trim(),password:document.querySelector('#asPassword').value});
       const msg=overlay.querySelector('[data-auth-message]');
       overlay.querySelector('#asSignIn').onclick=async()=>{const v=values();try{const {error}=await client.auth.signInWithPassword(v);if(error)throw error;overlay.remove()}catch(e){msg.textContent=e.message}};
@@ -62,8 +76,8 @@
   async function loadProfile(user) {
     const {data,error}=await client.from('profiles').select('*').eq('id',user.id).maybeSingle();
     if(error)throw error;
-    if(!data){const {error:upsertError}=await client.from('profiles').upsert({id:user.id,email:user.email||'',display_name:user.user_metadata?.display_name||'',city:'Slovensko'});if(upsertError)throw upsertError;return}
-    const name=data.display_name||user.email?.split('@')[0]||'Používateľ';
+    if(!data){const {error:upsertError}=await client.from('profiles').upsert({id:user.id,email:user.email||'',display_name:user.user_metadata?.display_name||'',city:'Slovensko'});if(upsertError)throw upsertError;setUserLabel(user.user_metadata?.display_name||user.email?.split('@')[0]||'');return}
+    const name=data.display_name||user.email?.split('@')[0]||'Používateľ';setUserLabel(name);
     if(typeof state !== 'undefined'){state.profile.name=name;state.profile.email=data.email||user.email||'';state.profile.location=data.city||'Slovensko';}
     document.querySelector('#userNameTop').textContent=name;
     document.querySelector('#profileName').value=name;
@@ -149,9 +163,11 @@
     if(realtimeChannel)await client.removeChannel(realtimeChannel);
     realtimeChannel=client.channel(`user-messages-${currentUser.id}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{if(payload.new.sender_id!==currentUser.id)loadMessages(activeConversation)}).subscribe();
   }
+  authBtn.onclick=async()=>{if(currentUser){await client.auth.signOut();toast('Boli ste odhlásený.')}else showAuth()};
   async function onSession(session){
     currentUser=session?.user||null;
-    if(!currentUser){showAuth();return}
+    authBtn.textContent=currentUser?'Odhlásiť sa':'Prihlásiť sa / Registrácia';authBtn.classList.toggle('out',!!currentUser);
+    if(!currentUser){setUserLabel('');const st=document.querySelector('.as-status');st?.classList.remove('live');if(st)st.querySelector('span').textContent='Backend pripravený';showAuth();return}
     hideAuth();document.querySelector('.as-status span').textContent=`Pripojený · ${currentUser.email}`;document.querySelector('.as-status').classList.add('live');
     await loadProfile(currentUser);await loadEntitlements();await loadRemoteChecklists();await renderLiveMarket();await loadMessages();await startRealtime();
   }
